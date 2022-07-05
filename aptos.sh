@@ -1,14 +1,4 @@
 #!/bin/bash
-echo "=================================================="
-echo -e "\033[0;35m"
-echo " ███╗░░░███╗░█████╗░██████╗░██╗░█████╗░  ███╗░░██╗░█████╗░██████╗░███████╗░██████╗ ";
-echo " ████╗░████║██╔══██╗██╔══██╗██║██╔══██╗  ████╗░██║██╔══██╗██╔══██╗██╔════╝██╔════╝ ";
-echo " ██╔████╔██║███████║██████╔╝██║██║░░██║  ██╔██╗██║██║░░██║██║░░██║█████╗░░╚█████╗░ ";
-echo " ██║╚██╔╝██║██╔══██║██╔══██╗╚═╝██║░░██║  ██║╚████║██║░░██║██║░░██║██╔══╝░░░╚═══██╗ ";
-echo " ██║░╚═╝░██║██║░░██║██║░░██║██╗╚█████╔╝  ██║░╚███║╚█████╔╝██████╔╝███████╗██████╔╝ ";
-echo " ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░╚════╝░  ╚═╝░░╚══╝░╚════╝░╚═════╝░╚══════╝╚═════╝░ ";
-echo -e "\e[0m"
-echo "=================================================="
 
 function aptos_username {
   if [ ! ${aptos_username} ]; then
@@ -86,7 +76,36 @@ EOF
 
 function up_validator {
   docker compose -f ${HOME}/aptos_testnet/docker-compose.yaml up -d
-
+}
+function logo {
+  curl -s https://raw.githubusercontent.com/artemkovsh/log/main/121.sh | bash
 }
 
-echo "Нода устновлена, продолжаем дальше по гайду"
+function line {
+  echo "-----------------------------------------------------------------------------"
+}
+
+function colors {
+  GREEN="\e[1m\e[32m"
+  RED="\e[1m\e[39m"
+  NORMAL="\e[0m"
+}
+
+colors
+line
+logo
+line
+aptos_username
+set_vars
+line
+install_ufw
+install_docker
+update_deps
+line
+download_aptos_cli
+prepare_config
+prepare_validator
+line
+up_validator
+line
+echo "Нода установлена, выполняем дальше по гайду!"
