@@ -11,104 +11,84 @@ echo -e "\e[0m"
 echo "=================================================="
 sleep 2
 
-# set vars
-echo "export WORKSPACE=testnet" >> $HOME/.bash_profile
-echo "export PUBLIC_IP=$(curl -s ifconfig.me)" >> $HOME/.bash_profile
-source $HOME/.bash_profile
+function aptos_username {
+  if [ ! ${aptos_username} ]; then
+  echo "Имя ноды"
+  line
+  read aptos_username
+  fi
+}
 
-echo -e "\e[1m\e[32m1. Updating dependencies... \e[0m" && sleep 1
-sudo apt update && sudo apt upgrade -y
+function install_uff1 {
+  curl -s https://raw.githubusercontent.com/artemkovsh/fu1/main/uff1.sh | bash
+}
 
-echo -e "\e[1m\e[32m2. Installing required dependencies... \e[0m" && sleep 1
-sudo apt-get install jq unzip -y
-sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.23.1/yq_linux_amd64 && chmod +x /usr/local/bin/yq
+function install_dooc1 {
+  curl -s https://raw.githubusercontent.com/artemkovsh/doc1/main/dooc1.sh | bash
+}
 
-echo -e "\e[1m\e[32m3. Checking if Docker is installed... \e[0m" && sleep 1
-if ! command -v docker &> /dev/null
-then
-    echo -e "\e[1m\e[32m3.1 Installing Docker... \e[0m" && sleep 1
-    sudo apt-get install ca-certificates curl gnupg lsb-release -y
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-    sudo apt-get update
-    sudo apt-get install docker-ce docker-ce-cli containerd.io -y
-fi
+function set_vars {
+  echo "export aptos_username=${aptos_username}"  >> ${HOME}/.bash_profile
+}
 
-echo -e "\e[1m\e[32m4. Checking if Docker Compose is installed ... \e[0m" && sleep 1
-docker compose version
-if [ $? -ne 0 ]
-then
-    echo -e "\e[1m\e[32m4.1 Installing Docker Compose v2.3.3 ... \e[0m" && sleep 1
-    mkdir -p ~/.docker/cli-plugins/
-    curl -SL https://github.com/docker/compose/releases/download/v2.2.3/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
-    chmod +x ~/.docker/cli-plugins/docker-compose
-    sudo chown $USER /var/run/docker.sock
-fi
+function update_deps {
+  sudo apt update
+  sudo apt install mc build-essential wget htop curl jq unzip -y
+}
 
-# download aptos-cli
-wget -qO aptos-cli.zip https://github.com/aptos-labs/aptos-core/releases/download/aptos-cli-v0.1.1/aptos-cli-0.1.1-Ubuntu-x86_64.zip
-unzip -o aptos-cli.zip -d /usr/local/bin
-chmod +x /usr/local/bin/aptos
-rm aptos-cli.zip
+function download_aptos_cli {
+  rm -f /usr/local/bin/aptos
+  wget -O $HOME/aptos-cli.zip https://github.com/aptos-labs/aptos-core/releases/download/aptos-cli-0.2.0/aptos-cli-0.2.0-Ubuntu-x86_64.zip
+  sudo unzip -o aptos-cli -d /usr/local/bin
+  sudo chmod +x /usr/local/bin/aptos
+}
 
-echo -e "\e[1m\e[32m5. Installing Validator Node ... \e[0m" && sleep 1
-mkdir ~/$WORKSPACE && cd ~/$WORKSPACE
+function prepare_config {
+  mkdir ${HOME}/aptos_testnet
+  wget -qO $HOME/aptos_testnet/docker-compose.yaml https://raw.githubusercontent.com/aptos-labs/aptos-core/main/docker/compose/aptos-node/docker-compose.yaml
+  wget -qO $HOME/aptos_testnet/validator.yaml https://raw.githubusercontent.com/aptos-labs/aptos-core/main/docker/compose/aptos-node/validator.yaml
+}
 
-# download configs
-wget -qO docker-compose.yaml https://raw.githubusercontent.com/aptos-labs/aptos-core/main/docker/compose/aptos-node/docker-compose.yaml
-wget -qO validator.yaml https://raw.githubusercontent.com/aptos-labs/aptos-core/main/docker/compose/aptos-node/validator.yaml
-wget -qO fullnode.yaml https://raw.githubusercontent.com/aptos-labs/aptos-core/main/docker/compose/aptos-node/fullnode.yaml
+function prepare_validator {
+  mkdir -p $HOME/aptos_testnet/keys/
 
-# generate keys
-aptos genesis generate-keys --output-dir ~/$WORKSPACE
+  aptos genesis generate-keys --output-dir $HOME/aptos_testnet
 
-# configure validator
-aptos genesis set-validator-configuration \
-  --keys-dir ~/$WORKSPACE --local-repository-dir ~/$WORKSPACE \
-  --username aptosbot \
-  --validator-host $PUBLIC_IP:6180 \
-  --full-node-host $PUBLIC_IP:6182
-  
-# generate root key
-mkdir keys
-aptos key generate --output-file keys/root
+  aptos key generate --output-file $HOME/aptos_testnet/keys/root
 
-# add layout file
-tee layout.yaml > /dev/null <<EOF
+  aptos genesis set-validator-configuration \
+    --keys-dir $HOME/aptos_testnet --local-repository-dir $HOME/aptos_testnet \
+    --username "$aptos_username" \
+    --validator-host `wget -qO- eth0.me`:6180 \
+    --full-node-host `wget -qO- eth0.me`:6182
+
+  tee $HOME/aptos_testnet/layout.yaml > /dev/null <<EOF
 ---
-root_key: "0x5243ca72b0766d9e9cbf2debf6153443b01a1e0e6d086c7ea206eaf6f8043956"
+root_key: "F22409A93D1CD12D2FC92B5F8EB84CDCD24C348E32B3E7A720F3D2E288E63394"
 users:
-  - aptosbot
-chain_id: 23
+ - $aptos_username
+chain_id: 40
+min_stake: 0
+max_stake: 100000
+min_lockup_duration_secs: 0
+max_lockup_duration_secs: 2592000
+epoch_duration_secs: 86400
+initial_lockup_timestamp: 1656615600
+min_price_per_gas_unit: 1
+allow_new_validators: true
 EOF
 
-# download aptos framework
-wget -qO framework.zip https://github.com/aptos-labs/aptos-core/releases/download/aptos-framework-v0.1.0/framework.zip
-unzip -o framework.zip
-rm framework.zip
+  wget -q https://github.com/aptos-labs/aptos-core/releases/download/aptos-framework-v0.2.0/framework.zip
+  unzip -o framework.zip -d $HOME/aptos_testnet/
+  rm framework.zip
 
-# compile genesis blob and waypoint
-aptos genesis generate-genesis --local-repository-dir ~/$WORKSPACE --output-dir ~/$WORKSPACE
+  aptos genesis generate-genesis --local-repository-dir $HOME/aptos_testnet --output-dir $HOME/aptos_testnet
+}
 
-# run docker compose
-docker compose up -d
+function up_validator {
+  docker compose -f ${HOME}/aptos_testnet/docker-compose.yaml up -d
 
-echo "=================================================="
-echo -e "\e[1m\e[32mAptos Validator Node Started \e[0m"
-echo -e "Please backup key files \e[1m\e[32mprivate-keys.yaml, validator-identity.yaml, validator-full-node-identity.yaml \e[0mlocated in: \e[1m\e[32m~/$WORKSPACE\e[0m"
-echo "=================================================="
+}
 
-echo -e "\e[1m\e[32mVerify initial synchronization: \e[0m" 
-echo -e "\e[1m\e[39m    curl 127.0.0.1:9101/metrics 2> /dev/null | grep aptos_state_sync_version | grep type \n \e[0m" 
-
-echo -e "\e[1m\e[32mTo view fullnode logs: \e[0m" 
-echo -e "\e[1m\e[39m    docker logs -f testnet-fullnode-1 --tail 50 \n \e[0m" 
-
-echo -e "\e[1m\e[32mTo view validator node logs: \e[0m" 
-echo -e "\e[1m\e[39m    docker logs -f testnet-validator-1 --tail 50 \n \e[0m" 
-
-echo -e "\e[1m\e[32mTo restart: \e[0m" 
-echo -e "\e[1m\e[39m    docker compose restart \n \e[0m" 
-
-echo -e "\e[1m\e[32mTo view keys: \e[0m" 
-echo -e "\e[1m\e[39m    cat ~/$WORKSPACE/private-keys.yaml \n \e[0m" 
+line
+echo "Нода устновлена, продолжаем дальше по гайду"
