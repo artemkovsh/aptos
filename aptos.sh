@@ -8,11 +8,11 @@ function aptos_username {
   fi
 }
 
-function install_uff1 {
+function install_ufw {
   curl -s https://raw.githubusercontent.com/artemkovsh/fu1/main/uff1.sh | bash
 }
 
-function install_dooc1 {
+function install_docker {
   curl -s https://raw.githubusercontent.com/artemkovsh/doc1/main/dooc1.sh | bash
 }
 
