@@ -90,5 +90,4 @@ function up_validator {
 
 }
 
-line
 echo "Нода устновлена, продолжаем дальше по гайду"
